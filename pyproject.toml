@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rune-aur-helper"
-version = "1.0.0"
+version = "0.1.0"
 description = "A graphical AUR package manager for Arch Linux"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Henri"}
+    {name = "Rune"}
 ]
 keywords = ["aur", "arch", "linux", "package-manager", "gtk"]
 classifiers = [
