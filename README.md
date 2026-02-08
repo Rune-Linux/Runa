@@ -1,6 +1,6 @@
-# Rune AUR Helper
+# Runa
 
-A graphical AUR (Arch User Repository) package manager for Linux. Works on any desktop environment that supports GTK3.
+A graphical AUR (Arch User Repository) package manager for Linux. Works on any desktop environment that supports GTK3. Apart of the Runa Linux Repository.
 
 ## Features
 
@@ -110,7 +110,7 @@ rm -rf ~/.cache/rune-aur-helper
 
 ## How It Works
 
-Rune AUR Helper uses:
+Runa uses:
 - The official [AUR RPC API](https://aur.archlinux.org/rpc) for searching packages
 - `git clone` to download package sources
 This is the same process as manually installing AUR packages, just automated with a nice GUI.

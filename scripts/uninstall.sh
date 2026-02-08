@@ -8,7 +8,7 @@ VENV_DIR="$APP_DATA_DIR/venv"
 BIN_HOME="$HOME/.local/bin"
 LAUNCHER="$BIN_HOME/rune-aur-helper"
 
-echo "Uninstalling Rune AUR Helper..."
+echo "Uninstalling Runa..."
 
 echo "Removing launcher..."
 if [ -f "$LAUNCHER" ]; then

@@ -246,6 +246,44 @@ class PackageInstaller:
         
         return results
     
+    def remove_packages(
+        self,
+        package_names: List[str],
+        password: str,
+        log_callback: Callable[[str], None] = None,
+    ) -> None:
+        if not package_names:
+            return
+        if log_callback:
+            log_callback(f"Removing packages: {', '.join(package_names)}")
+        cmd = ["sudo", "pacman", "-Rns", "--noconfirm", *package_names]
+        ret = self._run_command(
+            cmd,
+            password=password,
+            log_callback=log_callback,
+        )
+        if ret != 0:
+            raise InstallationError("pacman removal failed")
+    
+    def update_repo_packages(
+        self,
+        package_names: List[str],
+        password: str,
+        log_callback: Callable[[str], None] = None,
+    ) -> None:
+        if not package_names:
+            return
+        if log_callback:
+            log_callback(f"Updating repo packages: {', '.join(package_names)}")
+        cmd = ["sudo", "pacman", "-S", "--noconfirm", *package_names]
+        ret = self._run_command(
+            cmd,
+            password=password,
+            log_callback=log_callback,
+        )
+        if ret != 0:
+            raise InstallationError("pacman update failed")
+    
     def check_dependencies(self) -> List[str]:
         missing = []
         
@@ -262,7 +300,6 @@ class PackageInstaller:
             if os.path.exists(pkg_dir):
                 shutil.rmtree(pkg_dir)
         else:
-            # Clean all
             if os.path.exists(self.build_dir):
                 shutil.rmtree(self.build_dir)
                 os.makedirs(self.build_dir, exist_ok=True)

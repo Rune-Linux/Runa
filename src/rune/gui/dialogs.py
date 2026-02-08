@@ -55,9 +55,9 @@ class PasswordDialog(Gtk.Dialog):
 
 
 class InstallProgressDialog(Gtk.Dialog):
-    def __init__(self, parent, packages):
+    def __init__(self, parent, packages, operation_name="Installing"):
         super().__init__(
-            title="Installing Packages",
+            title=f"{operation_name} Packages",
             transient_for=parent,
             modal=True,
             destroy_with_parent=True
@@ -68,11 +68,12 @@ class InstallProgressDialog(Gtk.Dialog):
         
         self.packages = packages
         self.cancelled = False
+        self.operation_name = operation_name
         
         box = self.get_content_area()
         box.set_spacing(10)
         
-        self.progress_label = Gtk.Label(label=f"Installing 0/{len(packages)} packages...")
+        self.progress_label = Gtk.Label(label=f"{self.operation_name} 0/{len(packages)} packages...")
         self.progress_label.set_halign(Gtk.Align.START)
         box.pack_start(self.progress_label, False, False, 0)
         
@@ -117,7 +118,7 @@ class InstallProgressDialog(Gtk.Dialog):
         fraction = current / total if total > 0 else 0
         self.progress_bar.set_fraction(fraction)
         self.progress_bar.set_text(f"{current}/{total}")
-        self.progress_label.set_text(f"Installing {current}/{total} packages...")
+        self.progress_label.set_text(f"{self.operation_name} {current}/{total} packages...")
     
     def finish(self, results: dict) -> None:
         GLib.idle_add(self._finish_sync, results)
@@ -129,7 +130,7 @@ class InstallProgressDialog(Gtk.Dialog):
         failed_count = len(results["failed"])
         
         self.progress_label.set_text(
-            f"Complete: {success_count} succeeded, {failed_count} failed"
+            f"Complete: {success_count} {self.operation_name.lower()} succeeded, {failed_count} failed"
         )
         self.progress_bar.set_fraction(1.0)
         

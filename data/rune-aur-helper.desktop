@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=Rune AUR Helper
+Name=Runa
 Comment=Search and install AUR packages
 Exec=rune-aur-helper
 Icon=system-software-install
