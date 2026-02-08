@@ -238,9 +238,21 @@ class RuneAURHelper(Gtk.Window):
 
 def main():
     css = b"""
-    .suggested-action {
-        background-color: #3584e4;
-        color: white;
+    button.suggested-action {
+        background-image: linear-gradient(to bottom, #4fd1ff, #5be88a);
+        background-color: transparent;
+        color: #ffffff;
+        border-radius: 6px;
+        border-width: 0px;
+        padding: 6px 12px;
+    }
+
+    button.suggested-action:hover {
+        background-image: linear-gradient(to bottom, #63d7ff, #6cf29a);
+    }
+
+    button.suggested-action:active {
+        background-image: linear-gradient(to bottom, #3ab7e6, #47d777);
     }
     """
     
