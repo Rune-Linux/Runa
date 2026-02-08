@@ -53,7 +53,7 @@ rune-package-manager/
 ### Quick Install
 
 ```bash
-git clone https://github.com/yourusername/rune-aur-helper.git
+git clone https://github.com/Rune-Linux/Rune-AUR-Helper.git
 cd rune-aur-helper
 chmod +x scripts/install.sh
 ./scripts/install.sh
@@ -146,7 +146,7 @@ sudo pacman -S python-gobject gtk3
 ### Setting up for development
 
 ```bash
-git clone https://github.com/yourusername/rune-aur-helper.git
+git clone https://github.com/Rune-Linux/Rune-AUR-Helper.git
 cd rune-aur-helper
 pip install -e ".[dev]"
 ```
