@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Rune AUR Helper
+Comment=Search and install AUR packages
+Exec=rune-aur-helper
+Icon=system-software-install
+Terminal=false
+Type=Application
+Categories=System;PackageManager;
+Keywords=aur;arch;package;install;
