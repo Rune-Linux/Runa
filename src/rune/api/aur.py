@@ -73,7 +73,26 @@ class AURClient:
             raise ValueError(result.get("error", "Unknown error"))
         
         packages = [AURPackage(pkg) for pkg in result.get("results", [])]
-        packages.sort(key=lambda p: p.votes, reverse=True)
+        packages.sort(key=lambda p: (p.popularity, p.votes), reverse=True)
+        return packages
+
+    def search_popular(self, by: str = "name-desc", limit: int = 100) -> List[AURPackage]:
+        params = {
+            "v": "5",
+            "type": "search",
+            "by": by,
+            "arg": "a",
+        }
+
+        result = self._request(params)
+
+        if result.get("type") == "error":
+            raise ValueError(result.get("error", "Unknown error"))
+
+        packages = [AURPackage(pkg) for pkg in result.get("results", [])]
+        packages.sort(key=lambda p: (p.popularity, p.votes), reverse=True)
+        if limit is not None and limit > 0:
+            return packages[:limit]
         return packages
     
     def info(self, package_names: List[str]) -> List[AURPackage]:

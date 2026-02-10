@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rune-aur-helper"
-version = "0.1.0"
+version = "0.1.2"
 description = "A graphical AUR package manager for Arch Linux"
 readme = "README.md"
 license = {text = "MIT"}

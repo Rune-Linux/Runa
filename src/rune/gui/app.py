@@ -93,6 +93,13 @@ class RuneAURHelper(Gtk.Window):
         self.search_type.append("maintainer", "Maintainer")
         self.search_type.set_active(0)
         search_box.pack_start(self.search_type, False, False, 0)
+
+        self.sort_order = Gtk.ComboBoxText()
+        self.sort_order.append("popularity-desc", "Most popular first")
+        self.sort_order.append("popularity-asc", "Least popular first")
+        self.sort_order.set_active(0)
+        self.sort_order.connect("changed", self._on_sort_order_changed)
+        search_box.pack_start(self.sort_order, False, False, 0)
         
         search_button = Gtk.Button(label="Search")
         search_button.connect("clicked", self._on_search)
@@ -243,20 +250,19 @@ class RuneAURHelper(Gtk.Window):
     
     def _on_search(self, widget) -> None:
         query = self.search_entry.get_text().strip()
-        if not query:
-            return
-        
-        if len(query) < 2:
-            self.search_status_label.set_text("Search term must be at least 2 characters")
-            return
-        
         self.search_status_label.set_text("Searching...")
         self.search_entry.set_sensitive(False)
         
         def search_thread():
             try:
-                search_by = self.search_type.get_active_id()
-                results = self.aur_client.search(query, by=search_by)
+                search_by = self.search_type.get_active_id() or "name-desc"
+                if query:
+                    if len(query) < 2:
+                        GLib.idle_add(self._display_results, [], "Search term must be at least 2 characters")
+                        return
+                    results = self.aur_client.search(query, by=search_by)
+                else:
+                    results = self.aur_client.search_popular(by=search_by)
                 GLib.idle_add(self._display_results, results, None)
             except Exception as e:
                 GLib.idle_add(self._display_results, [], str(e))
@@ -280,19 +286,45 @@ class RuneAURHelper(Gtk.Window):
         if not packages:
             self.search_status_label.set_text("No packages found")
             return
-        
-        for package in packages[:100]:  
+
+        self._apply_sort_and_display()
+
+    def _apply_sort_and_display(self) -> None:
+        for child in self.search_listbox.get_children():
+            self.search_listbox.remove(child)
+
+        if not self.search_packages:
+            self.search_status_label.set_text("No packages found")
+            return
+
+        sort_id = None
+        if hasattr(self, "sort_order") and self.sort_order is not None:
+            sort_id = self.sort_order.get_active_id()
+
+        packages = list(self.search_packages)
+
+        if sort_id == "popularity-asc":
+            packages.sort(key=lambda p: (getattr(p, "popularity", 0.0), getattr(p, "votes", 0)))
+        else:
+            packages.sort(key=lambda p: (getattr(p, "popularity", 0.0), getattr(p, "votes", 0)), reverse=True)
+
+        for package in packages[:100]:
             row = PackageRow(package)
             self.search_listbox.add(row)
-        
+
         self.search_listbox.show_all()
-        
+
         count = len(packages)
         shown = min(count, 100)
         if count > 100:
-            self.search_status_label.set_text(f"Found {count} packages (showing first {shown})")
+            self.search_status_label.set_text(f"Found {count} packages (showing first {shown}, sorted by popularity)")
         else:
-            self.search_status_label.set_text(f"Found {count} packages")
+            self.search_status_label.set_text(f"Found {count} packages (sorted by popularity)")
+
+    def _on_sort_order_changed(self, widget) -> None:
+        if not getattr(self, "search_packages", None):
+            return
+        self._apply_sort_and_display()
     
     def _get_selected_search_packages(self) -> list:
         selected = []
