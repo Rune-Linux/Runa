@@ -522,12 +522,25 @@ class RuneAURHelper(Gtk.Window):
         self.updates_status_label.set_text("Checking for AUR and repo updates...")
         
         def worker():
+            aur_packages = []
+            repo_packages = []
+            errors = []
+
             try:
                 aur_packages = list_aur_updates()
-                repo_packages = list_core_extra_updates()
-                GLib.idle_add(self._display_updates, aur_packages, repo_packages, None)
             except Exception as e:
-                GLib.idle_add(self._display_updates, [], [], str(e))
+                errors.append(str(e))
+
+            try:
+                repo_packages = list_core_extra_updates()
+            except Exception as e:
+                errors.append(str(e))
+
+            error_msg = None
+            if not aur_packages and not repo_packages and errors:
+                error_msg = "; ".join(errors)
+
+            GLib.idle_add(self._display_updates, aur_packages, repo_packages, error_msg)
         thread = threading.Thread(target=worker)
         thread.daemon = True
         thread.start()
@@ -543,7 +556,12 @@ class RuneAURHelper(Gtk.Window):
         self.update_repo_packages = repo_packages
         
         if error:
-            self.updates_status_label.set_text(f"Error: {error}")
+            msg = str(error)
+            lower = msg.lower()
+            if "no packages" in lower or "pacman command failed" in lower:
+                self.updates_status_label.set_text("No packages found")
+            else:
+                self.updates_status_label.set_text(f"Error: {error}")
             return
         
         combined = list(aur_packages) + list(repo_packages)

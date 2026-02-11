@@ -16,6 +16,22 @@ def _run_pacman(args: List[str]) -> str:
     return proc.stdout
 
 
+def _vercmp(ver1: str, ver2: str) -> int:
+
+    proc = subprocess.run(
+        ["vercmp", ver1, ver2],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    out = proc.stdout.strip()
+    if proc.returncode == 0 and out in {"-1", "0", "1"}:
+        return int(out)
+    if ver1 == ver2:
+        return 0
+    return 1 if ver1 > ver2 else -1
+
+
 @dataclass
 class RepoPackage:
     name: str
@@ -48,8 +64,12 @@ def list_aur_updates() -> List[AURPackage]:
     updates = []
     for pkg in installed:
         local = getattr(pkg, "local_version", pkg.version)
-        if pkg.version != local:
-            updates.append(pkg)
+        aur_ver = pkg.version
+        try:
+            if _vercmp(aur_ver, local) > 0:
+                updates.append(pkg)
+        except Exception:
+            continue
     return updates
 
 
