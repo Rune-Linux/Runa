@@ -6,6 +6,7 @@ venv/
 env/
 .env/
 build/
+data/
 dist/
 *.egg-info/
 .eggs/

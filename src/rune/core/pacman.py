@@ -102,3 +102,60 @@ def list_core_extra_updates() -> List[RepoPackage]:
             local_version=local_version,
         ))
     return updates
+
+
+def _get_repo_package_info(name: str, version: str) -> RepoPackage:
+    info = _run_pacman(["-Qi", name])
+    repo = ""
+    desc = ""
+    for info_line in info.splitlines():
+        if ":" in info_line:
+            key, value = info_line.split(":", 1)
+            k = key.strip().lower()
+            if "repository" in k:
+                repo = value.strip()
+            elif "description" in k:
+                desc = value.strip()
+    return RepoPackage(
+        name=name,
+        version=version,
+        description=desc,
+        repo=repo,
+        local_version=version,
+    )
+
+
+def list_all_installed_packages() -> List[RepoPackage]:
+    output = _run_pacman(["-Q"])
+    packages: List[RepoPackage] = []
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            name = parts[0]
+            version = parts[1]
+            packages.append(_get_repo_package_info(name, version))
+    return packages
+
+
+def list_explicit_installed_packages() -> List[RepoPackage]:
+    output = _run_pacman(["-Qe"])
+    packages: List[RepoPackage] = []
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            name = parts[0]
+            version = parts[1]
+            packages.append(_get_repo_package_info(name, version))
+    return packages
+
+
+def list_orphan_packages() -> List[RepoPackage]:
+    output = _run_pacman(["-Qdt"])
+    packages: List[RepoPackage] = []
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            name = parts[0]
+            version = parts[1]
+            packages.append(_get_repo_package_info(name, version))
+    return packages

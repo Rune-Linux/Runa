@@ -293,6 +293,29 @@ class PackageInstaller:
                 missing.append(tool)
         
         return missing
+
+    def install_yay(
+        self,
+        password: str,
+        log_callback: Callable[[str], None] = None,
+    ) -> bool:
+        if shutil.which("yay") is not None:
+            return True
+
+        if log_callback:
+            log_callback("Installing yay AUR helper with pacman...")
+
+        cmd = ["sudo", "pacman", "-S", "--needed", "--noconfirm", "yay"]
+        ret = self._run_command(
+            cmd,
+            password=password,
+            log_callback=log_callback,
+        )
+
+        if ret != 0:
+            return False
+
+        return shutil.which("yay") is not None
     
     def cleanup(self, package_name: str = None) -> None:
         if package_name:

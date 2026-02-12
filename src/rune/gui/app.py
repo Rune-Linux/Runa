@@ -1,12 +1,29 @@
 #!/usr/bin/env python3
+import os
+import webbrowser
+import re
+import html
+try:
+    import tomllib 
+except ImportError:  
+    tomllib = None
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, Pango
 import threading
+import shutil
 
 from rune.api.aur import AURClient
 from rune.core.installer import PackageInstaller
-from rune.core.pacman import list_installed_aur, list_aur_updates, list_core_extra_updates, RepoPackage
+from rune.core.pacman import (
+    list_installed_aur,
+    list_aur_updates,
+    list_core_extra_updates,
+    list_all_installed_packages,
+    list_explicit_installed_packages,
+    list_orphan_packages,
+    RepoPackage,
+)
 from rune.gui.dialogs import PasswordDialog, InstallProgressDialog
 from rune.gui.widgets import PackageRow
 
@@ -26,6 +43,9 @@ class RuneAURHelper(Gtk.Window):
         self.update_repo_packages = []
         self.installed_loaded = False
         self.updates_loaded = False
+        self.aur_enabled = False
+        self.default_installed_filter = "all"
+        self.max_search_results = 100
         
         missing = self.installer.check_dependencies()
         if missing:
@@ -40,7 +60,330 @@ class RuneAURHelper(Gtk.Window):
             dialog.destroy()
         
         self._setup_ui()
+        self._ensure_yay_helper()
         self.connect("destroy", Gtk.main_quit)
+
+    def _apply_aur_preferences(self) -> None:
+        name = self.stack.get_visible_child_name() if hasattr(self, "stack") else None
+
+        if name == "search":
+            for child in self.search_listbox.get_children():
+                self.search_listbox.remove(child)
+            self.search_packages = []
+            if self.aur_enabled:
+                self.search_status_label.set_text("Enter a search term to find AUR packages")
+            else:
+                self.search_status_label.set_text("AUR packages are disabled in preferences")
+
+        if name == "installed" and self.installed_loaded:
+            self._on_refresh_installed(None)
+
+        if name == "updates" and self.updates_loaded:
+            self._on_refresh_updates(None)
+
+    def _create_settings_menu(self) -> Gtk.Menu:
+        menu = Gtk.Menu()
+
+        item_prefs = Gtk.MenuItem(label="Preferences")
+        item_prefs.connect("activate", lambda *_: self._show_preferences())
+        menu.append(item_prefs)
+
+        item_about = Gtk.MenuItem(label="About")
+        item_about.connect("activate", lambda *_: self._show_about())
+        menu.append(item_about)
+
+        menu.append(Gtk.SeparatorMenuItem())
+
+        item_quit = Gtk.MenuItem(label="Quit")
+        item_quit.connect("activate", lambda *_: Gtk.main_quit())
+        menu.append(item_quit)
+
+        menu.show_all()
+        return menu
+
+    def _show_preferences(self) -> None:
+        dialog = Gtk.Dialog(title="Preferences", transient_for=self, modal=True)
+        dialog.add_button(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
+
+        content = dialog.get_content_area()
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        vbox.set_border_width(10)
+
+        aur_frame = Gtk.Frame(label="AUR and Repositories")
+        aur_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        aur_box.set_border_width(6)
+
+        aur_checkbox = Gtk.CheckButton(label="Enable AUR packages")
+        aur_checkbox.set_active(self.aur_enabled)
+        aur_box.pack_start(aur_checkbox, False, False, 0)
+
+        installed_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        installed_label = Gtk.Label(label="Default Installed filter:")
+        installed_label.set_halign(Gtk.Align.START)
+        installed_combo = Gtk.ComboBoxText()
+        installed_combo.append("all", "All")
+        installed_combo.append("explicit", "Explicit")
+        installed_combo.append("orphans", "Orphans")
+        installed_combo.append("foreign", "Foreign (AUR)")
+        installed_combo.set_active_id(self.default_installed_filter)
+        installed_box.pack_start(installed_label, False, False, 0)
+        installed_box.pack_start(installed_combo, False, False, 0)
+        aur_box.pack_start(installed_box, False, False, 0)
+
+        aur_frame.add(aur_box)
+        vbox.pack_start(aur_frame, False, False, 0)
+
+        search_frame = Gtk.Frame(label="Search")
+        search_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        search_box.set_border_width(6)
+
+        max_label = Gtk.Label(label="Maximum search results:")
+        max_label.set_halign(Gtk.Align.START)
+        adjustment = Gtk.Adjustment(float(self.max_search_results), 10.0, 1000.0, 10.0, 50.0, 0.0)
+        max_spin = Gtk.SpinButton()
+        max_spin.set_adjustment(adjustment)
+        max_spin.set_digits(0)
+        search_box.pack_start(max_label, False, False, 0)
+        search_box.pack_start(max_spin, False, False, 0)
+
+        search_frame.add(search_box)
+        vbox.pack_start(search_frame, False, False, 0)
+
+        content.add(vbox)
+        dialog.show_all()
+
+        def on_response(dlg, response):
+            self.aur_enabled = aur_checkbox.get_active()
+            self.default_installed_filter = installed_combo.get_active_id() or "all"
+            self.max_search_results = int(max_spin.get_value())
+            dlg.destroy()
+            if hasattr(self, "installed_filter") and self.installed_filter is not None:
+                self.installed_filter.set_active_id(self.default_installed_filter)
+            self._apply_aur_preferences()
+
+        dialog.connect("response", on_response)
+
+    def _show_about(self) -> None:
+        dialog = Gtk.Dialog(title="About Runa", transient_for=self, modal=True)
+        dialog.add_button(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
+
+        content = dialog.get_content_area()
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        vbox.set_border_width(10)
+
+        logo = self._load_logo_image()
+        if logo is not None:
+            logo.set_halign(Gtk.Align.CENTER)
+            vbox.pack_start(logo, False, False, 0)
+
+        title_label = Gtk.Label()
+        title_label.set_markup("<big><b>Runa</b></big>")
+        title_label.set_halign(Gtk.Align.CENTER)
+        vbox.pack_start(title_label, False, False, 0)
+
+        version = self._load_version()
+        if version:
+            version_label = Gtk.Label(label=f"Version {version}")
+            version_label.set_halign(Gtk.Align.CENTER)
+            vbox.pack_start(version_label, False, False, 0)
+
+        desc_label = Gtk.Label(label="A graphical AUR and repository package manager for Arch Linux.")
+        desc_label.set_line_wrap(True)
+        desc_label.set_halign(Gtk.Align.CENTER)
+        vbox.pack_start(desc_label, False, False, 0)
+
+        buttons_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+
+        source_button = Gtk.Button()
+        source_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        source_label = Gtk.Label(label="Source Code")
+        source_label.set_halign(Gtk.Align.START)
+        source_box.pack_start(source_label, True, True, 0)
+        source_image = Gtk.Image.new_from_icon_name("external-link-symbolic", Gtk.IconSize.MENU)
+        source_image.set_pixel_size(12)
+        source_image.set_halign(Gtk.Align.END)
+        source_box.pack_start(source_image, False, False, 0)
+        source_button.add(source_box)
+        source_button.connect("clicked", lambda *_: webbrowser.open("https://github.com/Rune-Linux/Runa"))
+        buttons_box.pack_start(source_button, False, False, 0)
+
+        legal_button = Gtk.Button(label="Legal")
+        legal_button.connect("clicked", lambda *_: self._show_legal())
+        buttons_box.pack_start(legal_button, False, False, 0)
+
+        vbox.pack_start(buttons_box, False, False, 0)
+
+        content.add(vbox)
+        dialog.show_all()
+
+        dialog.connect("response", lambda dlg, resp: dlg.destroy())
+
+    def _show_legal(self) -> None:
+        text = self._load_license_text()
+        markup = self._license_to_markup(text)
+
+        dialog = Gtk.Dialog(title="Legal Information", transient_for=self, modal=True)
+        dialog.set_default_size(500, 350)
+        dialog.add_button(Gtk.STOCK_CLOSE, Gtk.ResponseType.CLOSE)
+
+        content = dialog.get_content_area()
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_min_content_width(500)
+        scrolled.set_min_content_height(300)
+
+        label = Gtk.Label()
+        label.set_use_markup(True)
+        label.set_line_wrap(True)
+        label.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+        label.set_xalign(0.0)
+        label.set_selectable(True)
+        label.set_markup(markup)
+
+        def on_activate_link(widget, uri):
+            webbrowser.open(uri)
+            return True
+
+        label.connect("activate-link", on_activate_link)
+
+        scrolled.add(label)
+        content.add(scrolled)
+        dialog.show_all()
+
+        dialog.connect("response", lambda dlg, resp: dlg.destroy())
+
+    def _load_license_text(self) -> str:
+        dir_path = os.path.dirname(os.path.abspath(__file__))
+        for _ in range(6):
+            candidate = os.path.join(dir_path, "LICENSE")
+            if os.path.isfile(candidate):
+                try:
+                    with open(candidate, "r", encoding="utf-8") as f:
+                        return f.read()
+                except Exception:
+                    break
+            parent = os.path.dirname(dir_path)
+            if parent == dir_path:
+                break
+            dir_path = parent
+        return "LICENSE file not found."
+
+    def _load_version(self) -> str:
+        if tomllib is None:
+            return ""
+
+        dir_path = os.path.dirname(os.path.abspath(__file__))
+        for _ in range(6):
+            candidate = os.path.join(dir_path, "pyproject.toml")
+            if os.path.isfile(candidate):
+                try:
+                    with open(candidate, "rb") as f:
+                        data = tomllib.load(f)
+                    version = data.get("project", {}).get("version")
+                    if version:
+                        return str(version)
+                except Exception:
+                    break
+            parent = os.path.dirname(dir_path)
+            if parent == dir_path:
+                break
+            dir_path = parent
+        return ""
+
+    def _license_to_markup(self, text: str) -> str:
+        pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+        parts = []
+        last_index = 0
+
+        for match in pattern.finditer(text):
+            before = text[last_index:match.start()]
+            parts.append(html.escape(before))
+
+            link_text = html.escape(match.group(1))
+            href = html.escape(match.group(2), quote=True)
+            parts.append(f'<a href="{href}">{link_text}</a>')
+
+            last_index = match.end()
+
+        remaining = text[last_index:]
+        parts.append(html.escape(remaining))
+
+        return "".join(parts)
+
+    def _load_logo_image(self):
+        dir_path = os.path.dirname(os.path.abspath(__file__))
+        for _ in range(6):
+            candidate = os.path.join(dir_path, "assets", "logo.png")
+            if os.path.isfile(candidate):
+                try:
+                    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(candidate, 96, 96, True)
+                    return Gtk.Image.new_from_pixbuf(pixbuf)
+                except Exception:
+                    break
+            parent = os.path.dirname(dir_path)
+            if parent == dir_path:
+                break
+            dir_path = parent
+        return None
+
+    def _ensure_yay_helper(self) -> None:
+        if shutil.which("yay") is not None:
+            return
+
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            modal=True,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text="Install yay AUR helper?",
+        )
+        dialog.format_secondary_text(
+            "The 'yay' AUR helper is not installed. Runa can install it using pacman. "
+            "This is optional, but recommended if you want to use yay alongside Runa.\n\n"
+            "Do you want to install yay now?",
+        )
+        response = dialog.run()
+        dialog.destroy()
+
+        if response != Gtk.ResponseType.YES:
+            return
+
+        password_dialog = PasswordDialog(self)
+        response = password_dialog.run()
+        password = password_dialog.get_password()
+        password_dialog.destroy()
+
+        if response != Gtk.ResponseType.OK or not password:
+            return
+
+        def worker() -> None:
+            success = self.installer.install_yay(password)
+
+            def finish() -> None:
+                if success:
+                    msg = Gtk.MessageDialog(
+                        transient_for=self,
+                        modal=True,
+                        message_type=Gtk.MessageType.INFO,
+                        buttons=Gtk.ButtonsType.OK,
+                        text="yay has been installed successfully.",
+                    )
+                else:
+                    msg = Gtk.MessageDialog(
+                        transient_for=self,
+                        modal=True,
+                        message_type=Gtk.MessageType.ERROR,
+                        buttons=Gtk.ButtonsType.OK,
+                        text="Failed to install yay.",
+                    )
+                msg.run()
+                msg.destroy()
+
+            GLib.idle_add(finish)
+
+        thread = threading.Thread(target=worker)
+        thread.daemon = True
+        thread.start()
     
     def _setup_ui(self) -> None:
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -58,6 +401,13 @@ class RuneAURHelper(Gtk.Window):
         
         stack_switcher = Gtk.StackSwitcher()
         stack_switcher.set_stack(self.stack)
+
+        menu_button = Gtk.MenuButton()
+        menu_icon = Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON)
+        menu_button.add(menu_icon)
+        menu_button.set_popup(self._create_settings_menu())
+
+        header_box.pack_end(menu_button, False, False, 0)
         header_box.pack_end(stack_switcher, False, False, 0)
         
         main_box.pack_start(header_box, False, False, 0)
@@ -152,13 +502,22 @@ class RuneAURHelper(Gtk.Window):
         self.installed_refresh_button.connect("clicked", self._on_refresh_installed)
         toolbar.pack_start(self.installed_refresh_button, False, False, 0)
         
-        self.installed_status_label = Gtk.Label(label="Installed AUR packages will be listed here")
+        self.installed_filter = Gtk.ComboBoxText()
+        self.installed_filter.append("all", "All")
+        self.installed_filter.append("explicit", "Explicit")
+        self.installed_filter.append("orphans", "Orphans")
+        self.installed_filter.append("foreign", "Foreign")
+        self.installed_filter.set_active_id(self.default_installed_filter)
+        self.installed_filter.connect("changed", self._on_installed_filter_changed)
+        toolbar.pack_start(self.installed_filter, False, False, 0)
+        
+        self.installed_status_label = Gtk.Label(label="Installed packages will be listed here")
         self.installed_status_label.set_halign(Gtk.Align.START)
         toolbar.pack_start(self.installed_status_label, True, True, 0)
         
         box.pack_start(toolbar, False, False, 0)
         
-        results_frame = Gtk.Frame(label="Installed AUR Packages")
+        results_frame = Gtk.Frame(label="Installed Packages")
         
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -250,6 +609,9 @@ class RuneAURHelper(Gtk.Window):
     
     def _on_search(self, widget) -> None:
         query = self.search_entry.get_text().strip()
+        if not self.aur_enabled:
+            self.search_status_label.set_text("AUR packages are disabled in preferences")
+            return
         self.search_status_label.set_text("Searching...")
         self.search_entry.set_sensitive(False)
         
@@ -262,7 +624,7 @@ class RuneAURHelper(Gtk.Window):
                         return
                     results = self.aur_client.search(query, by=search_by)
                 else:
-                    results = self.aur_client.search_popular(by=search_by)
+                    results = self.aur_client.search_popular(by=search_by, limit=self.max_search_results)
                 GLib.idle_add(self._display_results, results, None)
             except Exception as e:
                 GLib.idle_add(self._display_results, [], str(e))
@@ -308,15 +670,17 @@ class RuneAURHelper(Gtk.Window):
         else:
             packages.sort(key=lambda p: (getattr(p, "popularity", 0.0), getattr(p, "votes", 0)), reverse=True)
 
-        for package in packages[:100]:
+        limit = max(1, int(self.max_search_results)) if hasattr(self, "max_search_results") else 100
+
+        for package in packages[:limit]:
             row = PackageRow(package)
             self.search_listbox.add(row)
 
         self.search_listbox.show_all()
 
         count = len(packages)
-        shown = min(count, 100)
-        if count > 100:
+        shown = min(count, limit)
+        if count > limit:
             self.search_status_label.set_text(f"Found {count} packages (showing first {shown}, sorted by popularity)")
         else:
             self.search_status_label.set_text(f"Found {count} packages (sorted by popularity)")
@@ -406,11 +770,24 @@ class RuneAURHelper(Gtk.Window):
     def _on_refresh_installed(self, widget) -> None:
         if hasattr(self, "installed_refresh_button") and self.installed_refresh_button:
             self.installed_refresh_button.set_sensitive(False)
-        self.installed_status_label.set_text("Loading installed AUR packages...")
+        self.installed_status_label.set_text("Loading installed packages...")
         
         def worker():
             try:
-                packages = list_installed_aur()
+                filter_id = None
+                if hasattr(self, "installed_filter") and self.installed_filter is not None:
+                    filter_id = self.installed_filter.get_active_id()
+
+                if filter_id == "all":
+                    packages = list_all_installed_packages()
+                elif filter_id == "explicit":
+                    packages = list_explicit_installed_packages()
+                elif filter_id == "orphans":
+                    packages = list_orphan_packages()
+                elif filter_id == "foreign" and self.aur_enabled:
+                    packages = list_installed_aur()
+                else:
+                    packages = []
                 GLib.idle_add(self._display_installed_packages, packages, None)
             except Exception as e:
                 GLib.idle_add(self._display_installed_packages, [], str(e))
@@ -432,7 +809,7 @@ class RuneAURHelper(Gtk.Window):
             return
         
         if not packages:
-            self.installed_status_label.set_text("No AUR packages installed")
+            self.installed_status_label.set_text("No packages found for this filter")
             return
         
         for package in packages:
@@ -440,7 +817,11 @@ class RuneAURHelper(Gtk.Window):
             self.installed_listbox.add(row)
         
         self.installed_listbox.show_all()
-        self.installed_status_label.set_text(f"Found {len(packages)} installed AUR packages")
+        self.installed_status_label.set_text(f"Found {len(packages)} installed package(s)")
+
+    def _on_installed_filter_changed(self, widget) -> None:
+        if self.installed_loaded:
+            self._on_refresh_installed(None)
     
     def _get_selected_installed_packages(self) -> list:
         selected = []
@@ -526,10 +907,11 @@ class RuneAURHelper(Gtk.Window):
             repo_packages = []
             errors = []
 
-            try:
-                aur_packages = list_aur_updates()
-            except Exception as e:
-                errors.append(str(e))
+            if self.aur_enabled:
+                try:
+                    aur_packages = list_aur_updates()
+                except Exception as e:
+                    errors.append(str(e))
 
             try:
                 repo_packages = list_core_extra_updates()
