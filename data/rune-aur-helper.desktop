@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Runa AUR Helper
+Comment=Graphical AUR and repository package manager for Arch Linux
+Exec=rune-aur-helper
+Icon=runa
+Terminal=false
+Categories=System;PackageManager;
+StartupNotify=true
