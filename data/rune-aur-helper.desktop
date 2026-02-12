@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Runa AUR Helper
+Name=Runa
 Comment=Graphical AUR and repository package manager for Arch Linux
 Exec=rune-aur-helper
 Icon=runa
