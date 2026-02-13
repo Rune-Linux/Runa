@@ -3,10 +3,10 @@
 set -e
 
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-APP_DATA_DIR="$DATA_HOME/rune-aur-helper"
+APP_DATA_DIR="$DATA_HOME/runa"
 VENV_DIR="$APP_DATA_DIR/venv"
 BIN_HOME="$HOME/.local/bin"
-LAUNCHER="$BIN_HOME/rune-aur-helper"
+LAUNCHER="$BIN_HOME/runa"
 
 echo "Uninstalling Runa..."
 
@@ -26,8 +26,8 @@ if [ -d "$APP_DATA_DIR" ]; then
     rmdir "$APP_DATA_DIR" 2>/dev/null || true
 fi
 
-if [ -f ~/.local/share/applications/rune-aur-helper.desktop ]; then
-    rm ~/.local/share/applications/rune-aur-helper.desktop
+if [ -f ~/.local/share/applications/runa.desktop ]; then
+    rm ~/.local/share/applications/runa.desktop
     echo "  Removed desktop entry"
 fi
 
@@ -35,7 +35,7 @@ if command -v update-desktop-database &> /dev/null; then
     update-desktop-database ~/.local/share/applications 2>/dev/null || true
 fi
 
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/rune-aur-helper"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/runa"
 if [ -d "$CACHE_DIR" ]; then
     rm -rf "$CACHE_DIR"
     echo "  Removed cache directory"

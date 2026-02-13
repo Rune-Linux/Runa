@@ -2,7 +2,7 @@
 Type=Application
 Name=Runa
 Comment=Graphical AUR and repository package manager for Arch Linux
-Exec=rune-aur-helper
+Exec=runa
 Icon=runa
 Terminal=false
 Categories=System;PackageManager;

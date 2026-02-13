@@ -39,7 +39,7 @@ rune-package-manager/
 │           ├── dialogs.py      # Password and progress dialogs
 │           └── widgets.py      # Custom GTK widgets
 ├── data/
-│   └── rune-aur-helper.desktop # Desktop entry file
+│   └── runa.desktop           # Desktop entry file
 ├── scripts/
 │   ├── install.sh              # Installation script
 │   └── uninstall.sh            # Uninstallation script
@@ -53,8 +53,8 @@ rune-package-manager/
 ### Quick Install
 
 ```bash
-git clone https://github.com/Rune-Linux/Rune-AUR-Helper.git
-cd rune-aur-helper
+git clone https://github.com/Rune-Linux/Runa.git
+cd runa
 chmod +x scripts/install.sh
 ./scripts/install.sh
 ```
@@ -78,19 +78,19 @@ pip install --user -e .
 
 3. (Optional) Install the desktop entry:
 ```bash
-cp data/rune-aur-helper.desktop ~/.local/share/applications/
+cp data/runa.desktop ~/.local/share/applications/
 ```
 
 ### Running Without Installation
 
 ```bash
-cd rune-aur-helper
+cd runa
 python -m rune
 ```
 
 ## Usage
 
-1. Launch the application from your menu or run `rune-aur-helper`
+1. Launch the application from your menu or run `runa`
 2. Enter a search term (minimum 2 characters)
    - **Maintainer** - find packages by maintainer
 4. Click **Search** or press Enter
@@ -103,9 +103,9 @@ python -m rune
 
 Or manually:
 ```bash
-pip uninstall rune-aur-helper
-rm ~/.local/share/applications/rune-aur-helper.desktop
-rm -rf ~/.cache/rune-aur-helper
+pip uninstall runa
+rm ~/.local/share/applications/runa.desktop
+rm -rf ~/.cache/runa
 ```
 
 ## How It Works
@@ -119,7 +119,7 @@ This is the same process as manually installing AUR packages, just automated wit
 
 - Your sudo password is only used for `pacman -U` and dependency installation commands
 - Password is passed via stdin and not stored
-- Build directory is in `~/.cache/rune-aur-helper`
+- Build directory is in `~/.cache/runa`
 - Always review PKGBUILDs of packages you don't trust
 
 ## Troubleshooting
@@ -146,8 +146,8 @@ sudo pacman -S python-gobject gtk3
 ### Setting up for development
 
 ```bash
-git clone https://github.com/Rune-Linux/Rune-AUR-Helper.git
-cd rune-aur-helper
+git clone https://github.com/Rune-Linux/Runa.git
+cd runa
 pip install -e ".[dev]"
 ```
 

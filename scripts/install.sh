@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 BIN_HOME="$HOME/.local/bin"
-APP_DATA_DIR="$DATA_HOME/rune-aur-helper"
+APP_DATA_DIR="$DATA_HOME/runa"
 VENV_DIR="$APP_DATA_DIR/venv"
 
 echo "Installing Runa..."
@@ -56,7 +56,7 @@ echo "Installing Python package into the virtual environment..."
 
 echo "Creating launcher in $BIN_HOME..."
 mkdir -p "$BIN_HOME"
-LAUNCHER="$BIN_HOME/rune-aur-helper"
+LAUNCHER="$BIN_HOME/runa"
 cat > "$LAUNCHER" <<EOF
 #!/bin/sh
 "$VENV_DIR/bin/python" -m rune "$@"
@@ -65,7 +65,7 @@ chmod +x "$LAUNCHER"
 
 echo "Installing desktop entry..."
 mkdir -p "$HOME/.local/share/applications"
-cp "$PROJECT_ROOT/data/rune-aur-helper.desktop" "$HOME/.local/share/applications/"
+cp "$PROJECT_ROOT/data/runa.desktop" "$HOME/.local/share/applications/"
 
 if command -v update-desktop-database &> /dev/null; then
     update-desktop-database ~/.local/share/applications 2>/dev/null || true
@@ -76,7 +76,7 @@ echo "============================================"
 echo "Installation complete!"
 echo "============================================"
 echo ""
-echo "You can now run 'rune-aur-helper' from the terminal"
+echo "You can now run 'runa' from the terminal"
 echo "or find 'Runa' in your application menu."
 echo ""
 echo "Note: You may need to log out and back in for the"

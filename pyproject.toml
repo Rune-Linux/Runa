@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "rune-aur-helper"
+name = "runa"
 version = "0.1.4"
 description = "A graphical AUR package manager for Arch Linux"
 readme = "README.md"
@@ -37,15 +37,15 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/rune-aur-helper"
-Repository = "https://github.com/yourusername/rune-aur-helper"
-Issues = "https://github.com/yourusername/rune-aur-helper/issues"
+Homepage = "https://github.com/yourusername/runa"
+Repository = "https://github.com/yourusername/runa"
+Issues = "https://github.com/yourusername/runa/issues"
 
 [project.scripts]
-rune-aur-helper = "rune.gui.app:main"
+runa = "rune.gui.app:main"
 
 [project.gui-scripts]
-rune-aur-helper-gui = "rune.gui.app:main"
+runa-gui = "rune.gui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

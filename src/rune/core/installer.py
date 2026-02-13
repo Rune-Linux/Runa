@@ -15,7 +15,7 @@ class PackageInstaller:
     def __init__(self, build_dir: Optional[str] = None):
         self.build_dir = build_dir or os.path.join(
             os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")),
-            "rune-aur-helper"
+            "runa"
         )
         os.makedirs(self.build_dir, exist_ok=True)
     
