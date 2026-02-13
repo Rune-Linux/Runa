@@ -1,3 +1,3 @@
-__version__ = "1.0.0"
-__author__ = "Henri"
+__version__ = "0.1.4"
+__author__ = "Runa"
 __app_name__ = "Runa"
