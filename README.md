@@ -52,6 +52,13 @@ rune-package-manager/
 
 ### Quick Install
 
+From the AUR:
+```bash
+yay -S runa-aur
+```
+
+Or build from the source:
+
 ```bash
 git clone https://github.com/Rune-Linux/Runa.git
 cd runa
